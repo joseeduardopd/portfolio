@@ -1,0 +1,241 @@
+@inject HttpClient Http
+@implements IDisposable
+
+<div class="terminal">
+  <div class="titlebar" role="toolbar" aria-label="Terminal window controls">
+    <div class="title"><span class="title-icon">λ</span> Currículo.bat</div>
+    <div class="win-controls">
+      <button class="win-btn min" aria-label="Minimize" title="Minimize">
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+      <button class="win-btn max" aria-label="Maximize" title="Maximize">
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="2" y="2" width="6" height="6" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      </button>
+      <button class="win-btn close" aria-label="Close" title="Close">
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2L2 8" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+    </div>
+  </div>
+  <p>@statusText</p>
+  <div class="screen">
+    <div class="output" aria-live="polite">
+      @foreach (var line in outputLines)
+      {
+        <div class="line">@line</div>
+      }
+    </div>
+    <div class="line input-row">
+      <span class="prompt">$</span>
+      <input class="caret" @bind="currentCommand" @bind:event="oninput" @onkeydown="OnKeyDown" placeholder="@_placeholder" />
+    </div>
+  </div>
+  <div class="commands" style="margin-bottom:0;">
+    @foreach (var c in available.Where(a => a.Enabled).OrderBy(a => a.Order))
+    {
+      <button class="cmd" @onclick="() => Execute(c.Key)">@c.LabelPt</button>
+    }
+  </div>
+</div>
+
+@code {
+  private readonly List<string> outputLines = new();
+  private readonly List<string> history = new();
+  private int historyIndex = -1;
+  private string currentCommand = string.Empty;
+  private bool isTyping = false;
+  private List<CommandDto> available = new();
+  private CancellationTokenSource refreshCts = new();
+
+  protected override async Task OnInitializedAsync()
+  {
+    outputLines.Clear();
+    await TypeOutLines(GetIntroLines(), 9);
+    try
+    {
+      available = await Http.GetFromJsonAsync<List<CommandDto>>($"/api/terminal/commands?ts={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}") ?? new();
+      _ = RefreshAvailableLoopAsync();
+    }
+    catch (Exception ex)
+    {
+      statusText = $"init error: {ex.Message}";
+    }
+  }
+
+  private async void OnLangChange()
+  {
+    if (isTyping) return;
+    var last = history.LastOrDefault();
+    if (!string.IsNullOrWhiteSpace(last))
+    {
+      // Não limpar aqui: deixar o Execute animar o "> clear" automaticamente
+      await Execute(last);
+      return;
+    }
+    outputLines.Clear();
+    StateHasChanged();
+    await TypeOutLines(GetIntroLines(), 9);
+  }
+
+  private string[] GetIntroLines()
+  {
+    return new[]
+    {
+      "Bem-vindo(a) ao meu currículo/portfolio!",
+      "Frontend: Blazor WebAssembly (GitHub Pages).",
+      "Backend: ASP.NET Core Minimal API (Docker) — docs em /swagger.",
+      "Banco: PostgreSQL + EF Core.",
+      "Integração: os botões executam chamadas à API e renderizam as respostas.",
+      "Dev: Docker Compose para API + Postgres.",
+      "Clique em um comando ou digite no prompt ($)."
+    };
+  }
+
+  public void Dispose() { try { refreshCts.Cancel(); } catch { } }
+
+  private async Task RefreshAvailableLoopAsync()
+  {
+    try
+    {
+      while (!refreshCts.IsCancellationRequested)
+      {
+        await Task.Delay(4000, refreshCts.Token);
+        var latest = await Http.GetFromJsonAsync<List<CommandDto>>($"/api/terminal/commands?ts={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}");
+        if (latest is null) continue;
+        if (!AreSameCommands(available, latest))
+        {
+          available = latest;
+          StateHasChanged();
+          var last = history.LastOrDefault();
+          if (!string.IsNullOrWhiteSpace(last) && !isTyping)
+          {
+            await Execute(last);
+          }
+        }
+      }
+    }
+    catch (TaskCanceledException) { }
+    catch { }
+  }
+
+  private static bool AreSameCommands(List<CommandDto> a, List<CommandDto> b)
+  {
+    if (a.Count != b.Count) return false;
+    var ax = a.OrderBy(x => x.Order).ThenBy(x => x.Id).ToList();
+    var bx = b.OrderBy(x => x.Order).ThenBy(x => x.Id).ToList();
+    for (int i = 0; i < ax.Count; i++)
+    {
+      if (ax[i].Id != bx[i].Id) return false;
+      if (ax[i].Key != bx[i].Key) return false;
+      if (ax[i].LabelPt != bx[i].LabelPt) return false;
+      if (ax[i].LabelEn != bx[i].LabelEn) return false;
+      if (ax[i].Order != bx[i].Order) return false;
+      if (ax[i].Enabled != bx[i].Enabled) return false;
+      var aSteps = string.Join("\n", ax[i].Steps ?? new List<string>());
+      var bSteps = string.Join("\n", bx[i].Steps ?? new List<string>());
+      if (!string.Equals(aSteps, bSteps, StringComparison.Ordinal)) return false;
+    }
+    return true;
+  }
+
+  private async Task OnKeyDown(KeyboardEventArgs e)
+  {
+    if (e.Key == "Enter")
+    {
+      var cmd = currentCommand.Trim();
+      currentCommand = string.Empty;
+      await Execute(cmd);
+    }
+    else if (e.Key == "ArrowUp")
+    {
+      if (history.Count == 0) return;
+      historyIndex = Math.Max(0, historyIndex == -1 ? history.Count - 1 : historyIndex - 1);
+      currentCommand = history[historyIndex];
+    }
+    else if (e.Key == "ArrowDown")
+    {
+      if (history.Count == 0) return;
+      historyIndex = Math.Min(history.Count - 1, historyIndex + 1);
+      currentCommand = history[historyIndex];
+    }
+  }
+
+  private async Task TypeOutLines(IEnumerable<string> lines, int delayMsPerChar = 12)
+  {
+    foreach (var line in lines)
+    {
+      outputLines.Add(string.Empty);
+      var index = outputLines.Count - 1;
+      for (int i = 0; i < line.Length; i++)
+      {
+        outputLines[index] = line.Substring(0, i + 1);
+        StateHasChanged();
+        await Task.Delay(delayMsPerChar);
+      }
+    }
+  }
+
+  private async Task Execute(string cmd)
+  {
+    if (string.IsNullOrWhiteSpace(cmd) || isTyping) return;
+    isTyping = true;
+    history.Add(cmd);
+    historyIndex = -1;
+    // apenas PT-BR; todo conteúdo vem do CRUD Admin
+    // Se já há conteúdo, simula um clear e limpa a tela
+    if (outputLines.Count > 0)
+    {
+      await TypeOutLines(new[] { "> clear" }, 14);
+      await Task.Delay(80);
+      outputLines.Clear();
+      StateHasChanged();
+    }
+
+    // Linha do comando
+    await TypeOutLines(new[] { $"> {cmd}" }, 18);
+
+    var lines = new List<string>();
+    var key = cmd.ToLowerInvariant();
+    try
+    {
+      var cmdDto = await Http.GetFromJsonAsync<CommandDto>($"/api/terminal/commands/{Uri.EscapeDataString(key)}?ts={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}");
+      if (cmdDto is not null)
+      {
+        await TypeOutLines(new[]
+        {
+          $"> const {key.Replace(" ", "_")} = await fetch('/api/terminal/commands/{key}');",
+          "> render(steps)"
+        }, 10);
+        var steps = cmdDto.Steps ?? new List<string>();
+        lines.AddRange(steps);
+      }
+      else lines.Add("comando não encontrado");
+    }
+    catch { lines.Add("comando não encontrado"); }
+
+    if (lines.Count > 0)
+      await TypeOutLines(lines);
+
+    isTyping = false;
+    StateHasChanged();
+  }
+
+  // botões vindo do catálogo
+
+  // todo conteúdo vem do CRUD via /api/terminal/commands/{key}
+
+  private string statusText = string.Empty;
+  private string _placeholder => "digite um comando...";
+
+  private sealed class CommandDto
+  {
+    public Guid Id { get; set; }
+    public string Key { get; set; } = string.Empty;
+    public string LabelPt { get; set; } = string.Empty;
+    public string LabelEn { get; set; } = string.Empty;
+    public int Order { get; set; }
+    public bool Enabled { get; set; }
+    public List<string>? Steps { get; set; }
+  }
+}
+
+

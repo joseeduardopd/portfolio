@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=portfolio
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  api:
+    build:
+      context: ..
+      dockerfile: src/api/Dockerfile
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Host=db;Database=portfolio;Username=postgres;Password=postgres
+      - ADMIN__EMAIL=admin@example.com
+      - ADMIN__PASSWORD=admin123
+      - JWT__KEY=dev-super-secret-key-32-bytes-min-1234567890abcd
+      - AVATAR__ROOT=/data/profile
+      - SMTP__HOST=smtp.gmail.com
+      - SMTP__PORT=587
+      - SMTP__USER=${SMTP_USER:-}
+      - SMTP__PASS=${SMTP_PASS:-}
+      - SMTP__FROM=${SMTP_FROM:-joseeduardopd@gmail.com}
+      - SMTP__TO=${SMTP_TO:-joseeduardopd@gmail.com}
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+    volumes:
+      - profile_data:/data/profile
+volumes:
+  db_data:
+  profile_data:
+
+

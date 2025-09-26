@@ -1,0 +1,73 @@
+:root {
+  --bg: #05070a;
+  --bg-grad-1: #0a0f1f;
+  --bg-grad-2: #05070a;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #22d3ee;
+  --accent-2: #6ee7b7;
+  --panel: #0b1220;
+  --border: #1f2a44;
+  --panel-h: clamp(420px, 62vh, 720px);
+}
+
+html, body { height: 100%; }
+body {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 800px at 15% 15%, rgba(34,211,238,0.08), transparent),
+    radial-gradient(900px 600px at 85% 10%, rgba(99,102,241,0.08), transparent),
+    linear-gradient(180deg, var(--bg), var(--bg-grad-2));
+  position: relative;
+}
+
+.container { display: flex; min-height: 100vh; }
+.content { max-width: 1400px; margin: 0 auto; padding: 6rem 2rem 3rem; width: 100%; position: relative; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 2rem; align-items: stretch; height: var(--panel-h); }
+.terminal-wrap { height: 100%; display: grid; }
+.sidebar { display: grid; grid-template-rows: auto auto 1fr; gap: 1rem; height: 100%; overflow: hidden; }
+.links h2, .contact h2 { margin: .2rem 0 1rem; color: #cbd5e1; font-weight: 600; }
+.links .icons { display: flex; gap: .7rem; flex-wrap: wrap; width: 100%; justify-content: space-between; }
+.icon { width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #1e293b; color: #cbd5e1; background: #0f172a; transition: transform .08s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.icon svg { width: 26px; height: 26px; }
+.icon:hover { transform: translateY(-1px); background: #16213a; border-color: #2a3a58; box-shadow: 0 0 0 3px rgba(34,211,238,0.12); }
+.profile-card { background: linear-gradient(180deg, #0b1220, #0a101a); border: 1px solid #0f1b33; border-radius: 10px; padding: 1rem; box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
+.profile-card .header { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; }
+.profile-card .avatar { width: 56px; height: 56px; border-radius: 50%; background: #0f172a; border: 1px solid #1e293b; display: grid; place-items: center; color: #93c5fd; font-weight: 700; }
+.profile-card .meta .name { font-weight: 700; color: #e5e7eb; }
+.profile-card .meta .title { color: #94a3b8; font-size: .9rem; }
+.profile-card .facts { display: grid; gap: .5rem; color: #cbd5e1; }
+.contact { background: linear-gradient(180deg, #0b1220, #0a101a); border: 1px solid #0f1b33; border-radius: 10px; padding: 1rem; box-shadow: 0 10px 20px rgba(0,0,0,0.25); display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.contact .form-grid { display: grid; grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; gap: .75rem; }
+.contact .field { background: #0b1220; color: var(--text); border: 1px solid #1e293b; border-radius: 8px; padding: .6rem .75rem; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+.contact textarea.field { min-height: 120px; resize: none; overflow-y: auto; }
+.contact .send { margin-top: .5rem; background: #22d3ee; color: #0b1220; border: none; border-radius: 8px; padding: .6rem .9rem; cursor: pointer; font-weight: 600; }
+.contact .send:hover { filter: brightness(1.08); }
+
+/* Terminal */
+.terminal { background: linear-gradient(180deg, #0a101a, #070b12); color: var(--text); padding: 0 1.25rem 1rem; border-radius: 8px; border: 1px solid #0f172a; box-shadow: 0 10px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03) inset; position: relative; overflow: hidden; height: 100%; display: flex; flex-direction: column; max-height: var(--panel-h); }
+.terminal .titlebar { height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 .75rem 0 1rem; margin: 0 -1.25rem .5rem; background: linear-gradient(180deg, #0d1526, #0b1220); border-bottom: 1px solid #0f1b33; }
+.terminal .titlebar .title { display: flex; align-items: center; gap: .5rem; font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: .92rem; color: #cbd5e1; }
+.terminal .titlebar .title-icon { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,.35); }
+.terminal .win-controls { display: flex; align-items: center; gap: .35rem; }
+.terminal .win-controls .win-btn { width: 36px; height: 28px; display: inline-flex; align-items: center; justify-content: center; color: #93a4bf; background: transparent; border: none; border-radius: 4px; cursor: pointer; }
+.terminal .win-controls .win-btn:hover { background: rgba(255,255,255,0.06); }
+.terminal .win-controls .win-btn.close:hover { background: #dc2626; color: #fff; }
+.terminal::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.02) 2px, transparent 2px, transparent 4px); pointer-events: none; }
+.terminal .prompt { color: var(--accent-2); margin-right: .5rem; text-shadow: 0 0 8px rgba(110,231,183,0.35); }
+.terminal .screen { flex: 1 1 auto; min-height: 0; font-size: 1.05rem; font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; display: grid; grid-template-rows: 1fr auto; gap: .35rem; }
+.terminal .output { overflow: auto; padding-top: .35rem; }
+.terminal .line { line-height: 1.7; white-space: pre-wrap; }
+.terminal .input-row { display: flex; align-items: center; gap: .5rem; }
+.terminal input { background: transparent; border: none; color: var(--text); outline: none; width: 80%; font-family: inherit; }
+.caret { caret-color: #22d3ee; }
+.caret::placeholder { color: #64748b; }
+
+.commands { margin-top: .9rem; display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 0; padding-bottom: 0; }
+.cmd { background: #0f172a; color: var(--text); border: 1px solid #1e293b; border-radius: 8px; padding: .45rem .7rem; cursor: pointer; transition: transform .08s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.cmd:hover { background: #16213a; border-color: #2a3a58; box-shadow: 0 0 0 3px rgba(34,211,238,0.12); }
+.cmd:active { transform: translateY(1px); }
+
+

@@ -1,0 +1,88 @@
+@page "/admin/login"
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="logo">λ</div>
+      <div>
+        <h2>Admin • Login</h2>
+        <p>Acesse o painel para gerenciar os comandos do terminal</p>
+      </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+      <div class="alert error">@error</div>
+    }
+
+    <EditForm Model="model" OnValidSubmit="LoginAsync">
+      <DataAnnotationsValidator />
+      <div class="form">
+        <label>Email</label>
+        <InputText class="input" placeholder="admin@example.com" @bind-Value="model.Email" />
+
+        <label>Senha</label>
+        <InputText class="input" placeholder="••••••••" @bind-Value="model.Password" type="password" />
+
+        <button class="btn" type="submit">Entrar</button>
+      </div>
+    </EditForm>
+  </div>
+</div>
+
+@code {
+  private LoginModel model = new();
+  private string error = string.Empty;
+
+  private async Task LoginAsync()
+  {
+    error = string.Empty;
+    try
+    {
+      var resp = await Http.PostAsJsonAsync("/api/auth/login", model);
+      var body = await resp.Content.ReadAsStringAsync();
+      if (!resp.IsSuccessStatusCode)
+      {
+        error = $"Erro {(int)resp.StatusCode}: {(string.IsNullOrWhiteSpace(body) ? "Falha no login" : body)}";
+        return;
+      }
+      var data = System.Text.Json.JsonSerializer.Deserialize<LoginResponse>(body);
+      if (data is null || string.IsNullOrWhiteSpace(data.token))
+      {
+        error = "Resposta inválida";
+        return;
+      }
+      await JS.InvokeAsync<object>("localStorage.setItem", new object?[] { "auth_token", data.token });
+      Nav.NavigateTo("/admin/terminal", forceLoad: true);
+    }
+    catch (Exception ex) { error = ex.Message; }
+  }
+
+  private sealed class LoginModel
+  {
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+  }
+  private sealed class LoginResponse { public string token { get; set; } = string.Empty; public int expiresIn { get; set; } }
+}
+
+<style>
+.auth-page { min-height: calc(100vh - 60px); display:grid; place-items:center; }
+.auth-card { width:100%; max-width:420px; padding:22px; border-radius:14px; border:1px solid rgba(255,255,255,0.16); background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); box-shadow: 0 10px 40px rgba(0,0,0,0.35); backdrop-filter: blur(6px); }
+.auth-header { display:flex; gap:14px; align-items:center; margin-bottom:14px; }
+.auth-header .logo { width:38px; height:38px; border-radius:8px; display:grid; place-items:center; background: radial-gradient(110% 110% at 0% 0%, #5b96ff 0%, #6e54ef 50%, #8f3eda 100%); color:#fff; font-weight:700; }
+.auth-header h2 { margin:0; font-size:20px; }
+.auth-header p { margin:2px 0 0; opacity:.8; font-size:12px; }
+.form { display:flex; flex-direction:column; gap:10px; }
+.form label { font-size:12px; opacity:.85; }
+.input { padding:10px 12px; background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.16); color:#e6e6e6; border-radius:8px; }
+.input:focus { outline:none; border-color:#7aa2ff; box-shadow: 0 0 0 3px rgba(80,140,255,0.18); }
+.btn { margin-top:6px; padding:10px 12px; border-radius:8px; background: linear-gradient(135deg, #6992ff, #8f3eda); border:0; color:white; cursor:pointer; font-weight:600; }
+.btn:hover { filter: brightness(1.05); }
+.alert.error { padding:8px 10px; border:1px solid rgba(255,80,80,0.6); border-radius:8px; background: rgba(255,0,0,0.08); margin-bottom:10px; }
+</style>
+
+

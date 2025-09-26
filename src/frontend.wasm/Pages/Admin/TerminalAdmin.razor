@@ -1,0 +1,319 @@
+@page "/admin/terminal"
+@inject HttpClient Http
+
+<h2>Admin • Comandos do Terminal</h2>
+
+@if (!string.IsNullOrEmpty(error))
+{
+  <div class="alert error">@error</div>
+}
+
+@if (isLoading)
+{
+  <p>Carregando...</p>
+}
+else
+{
+  <div class="admin-grid">
+    <section>
+      <h3>Catálogo</h3>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Ordem</th>
+            <th>Key</th>
+            <th>PT</th>
+            <th>EN</th>
+            <th>Ativo</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+        @foreach (var c in commands.OrderBy(c => c.Order))
+        {
+          <tr class="@(c.Id == model.Id ? "selected" : string.Empty)">
+            <td style="white-space:nowrap">
+              <input type="number" style="width:70px" value="@c.Order" @onchange="(e)=>OnOrderChange(c, e)" />
+            </td>
+            <td>@c.Key</td>
+            <td>@c.LabelPt</td>
+            <td>@c.LabelEn</td>
+            <td>
+              <input type="checkbox" checked="@c.Enabled" @onchange="(e)=>OnToggleEnabled(c, e)" />
+            </td>
+            <td style="white-space:nowrap">
+              <button @onclick="() => Edit(c)">Editar</button>
+              <button class="danger" @onclick="() => DeleteAsync(c)">Remover</button>
+            </td>
+          </tr>
+        }
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h3>@(model.Id == Guid.Empty ? "Novo comando" : $"Editando • {model.Key}")</h3>
+      <EditForm Model="model" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-grid">
+          <div>
+            <label>Key</label>
+            <InputText @bind-Value="model.Key" />
+          </div>
+          <div>
+            <label>PT (label)</label>
+            <InputText @bind-Value="model.LabelPt" />
+          </div>
+          <div>
+            <label>EN (label)</label>
+            <InputText @bind-Value="model.LabelEn" />
+          </div>
+          <div>
+            <label>Ordem</label>
+            <InputNumber @bind-Value="model.Order" />
+          </div>
+          <div>
+            <label>Ativo</label>
+            <InputCheckbox @bind-Value="model.Enabled" />
+          </div>
+          <div class="col-span-2">
+            <label>Steps (1 por linha)</label>
+            <InputTextArea class="steps" @bind-Value="model.StepsText" />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit">@(model.Id == Guid.Empty ? "Criar" : "Salvar")</button>
+          <button type="button" class="secondary" @onclick="New">Limpar</button>
+        </div>
+      </EditForm>
+    </section>
+  </div>
+}
+
+@code {
+  private bool isLoading = true;
+  private string error = string.Empty;
+  private List<CommandDto> commands = new();
+
+  private AdminModel model = new();
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    error = string.Empty;
+    isLoading = true;
+    StateHasChanged();
+    try
+    {
+      commands = await Http.GetFromJsonAsync<List<CommandDto>>("/api/terminal/commands") ?? new();
+    }
+    catch (Exception ex)
+    {
+      error = ex.Message;
+    }
+    finally
+    {
+      isLoading = false;
+    }
+  }
+
+  private void Edit(CommandDto dto)
+  {
+    model = new AdminModel
+    {
+      Id = dto.Id,
+      Key = dto.Key,
+      LabelPt = dto.LabelPt,
+      LabelEn = dto.LabelEn,
+      Order = dto.Order,
+      Enabled = dto.Enabled,
+      StepsText = string.Join("\n", dto.Steps ?? new())
+    };
+  }
+
+  private void New()
+  {
+    model = new();
+  }
+
+  private async Task SaveAsync()
+  {
+    error = string.Empty;
+    var steps = (model.StepsText ?? string.Empty)
+      .Replace("\r", string.Empty)
+      .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+      .ToList();
+
+    try
+    {
+      if (model.Id == Guid.Empty)
+      {
+        var payload = new CreateDto
+        {
+          Key = model.Key,
+          LabelPt = model.LabelPt,
+          LabelEn = model.LabelEn,
+          Order = model.Order,
+          Enabled = model.Enabled,
+          Steps = steps
+        };
+        var resp = await Http.PostAsJsonAsync("/api/terminal/commands", payload);
+        if (!resp.IsSuccessStatusCode)
+        {
+          error = await resp.Content.ReadAsStringAsync();
+          return;
+        }
+      }
+      else
+      {
+        var payload = new UpdateDto
+        {
+          Key = model.Key,
+          LabelPt = model.LabelPt,
+          LabelEn = model.LabelEn,
+          Order = model.Order,
+          Enabled = model.Enabled,
+          Steps = steps
+        };
+        var resp = await Http.PutAsJsonAsync($"/api/terminal/commands/{model.Id}", payload);
+        if (!resp.IsSuccessStatusCode)
+        {
+          error = await resp.Content.ReadAsStringAsync();
+          return;
+        }
+      }
+      await LoadAsync();
+      var updated = commands.FirstOrDefault(c => c.Key.Equals(model.Key, StringComparison.OrdinalIgnoreCase));
+      if (updated is not null) Edit(updated); else New();
+    }
+    catch (Exception ex)
+    {
+      error = ex.Message;
+    }
+  }
+
+  private async Task DeleteAsync(CommandDto dto)
+  {
+    if (dto.Id == Guid.Empty) return;
+    try
+    {
+      var resp = await Http.DeleteAsync($"/api/terminal/commands/{dto.Id}");
+      if (!resp.IsSuccessStatusCode)
+      {
+        error = await resp.Content.ReadAsStringAsync();
+        return;
+      }
+      await LoadAsync();
+      if (model.Id == dto.Id) New();
+    }
+    catch (Exception ex)
+    {
+      error = ex.Message;
+    }
+  }
+
+  private async Task OnToggleEnabled(CommandDto dto, ChangeEventArgs e)
+  {
+    var next = e.Value is bool b && b;
+    try
+    {
+      var resp = await Http.PatchAsJsonAsync($"/api/terminal/commands/{dto.Id}/enabled", new { enabled = next });
+      if (!resp.IsSuccessStatusCode)
+      {
+        error = await resp.Content.ReadAsStringAsync();
+      }
+      else
+      {
+        dto.Enabled = next;
+      }
+    }
+    catch (Exception ex) { error = ex.Message; }
+  }
+
+  private async Task OnOrderChange(CommandDto dto, ChangeEventArgs e)
+  {
+    if (e.Value is null) return;
+    if (!int.TryParse(e.Value.ToString(), out var order)) return;
+    try
+    {
+      var resp = await Http.PatchAsJsonAsync($"/api/terminal/commands/{dto.Id}/order", new { order });
+      if (!resp.IsSuccessStatusCode)
+      {
+        error = await resp.Content.ReadAsStringAsync();
+      }
+      else
+      {
+        dto.Order = order;
+      }
+    }
+    catch (Exception ex) { error = ex.Message; }
+  }
+
+  private sealed class AdminModel
+  {
+    public Guid Id { get; set; }
+    public string Key { get; set; } = string.Empty;
+    public string LabelPt { get; set; } = string.Empty;
+    public string LabelEn { get; set; } = string.Empty;
+    public int Order { get; set; } = 0;
+    public bool Enabled { get; set; } = true;
+    public string? StepsText { get; set; }
+  }
+
+  private sealed class CommandDto
+  {
+    public Guid Id { get; set; }
+    public string Key { get; set; } = string.Empty;
+    public string LabelPt { get; set; } = string.Empty;
+    public string LabelEn { get; set; } = string.Empty;
+    public int Order { get; set; }
+    public bool Enabled { get; set; }
+    public List<string>? Steps { get; set; }
+  }
+
+  private sealed class CreateDto
+  {
+    public string Key { get; set; } = string.Empty;
+    public string LabelPt { get; set; } = string.Empty;
+    public string LabelEn { get; set; } = string.Empty;
+    public int Order { get; set; }
+    public bool Enabled { get; set; } = true;
+    public List<string>? Steps { get; set; }
+  }
+
+  private sealed class UpdateDto
+  {
+    public string? Key { get; set; }
+    public string? LabelPt { get; set; }
+    public string? LabelEn { get; set; }
+    public int? Order { get; set; }
+    public bool? Enabled { get; set; }
+    public List<string>? Steps { get; set; }
+  }
+}
+
+<style>
+.admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.admin-table { width: 100%; border-collapse: collapse; }
+.admin-table th, .admin-table td { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 8px; text-align: left; }
+.admin-table tr.selected { background: rgba(255,255,255,0.04); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-grid .col-span-2 { grid-column: span 2; }
+.form-grid label { display:block; font-size: 12px; opacity: .8; margin-bottom: 6px; }
+.form-grid input, .form-grid textarea { width:100%; padding:8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e6e6e6; border-radius: 6px; }
+.steps { min-height: 140px; font-family: "JetBrains Mono", Consolas, monospace; }
+.actions { margin-top: 10px; display: flex; gap: 8px; }
+button { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color:#e6e6e6; cursor: pointer; }
+button:hover { background: rgba(255,255,255,0.1); }
+button.secondary { background: transparent; }
+button.danger { border-color: rgba(255,60,60,0.5); color: #ff7070; }
+.alert.error { padding:8px 10px; border:1px solid rgba(255,80,80,0.6); border-radius:6px; background: rgba(255,0,0,0.08); margin-bottom:10px; }
+@@media (max-width: 980px) { .admin-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } .form-grid .col-span-2 { grid-column: span 1; } }
+</style>
+
+

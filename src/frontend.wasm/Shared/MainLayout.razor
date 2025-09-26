@@ -1,0 +1,24 @@
+@inherits LayoutComponentBase
+
+<div class="container">
+    <div class="content">
+        <div class="crud-cta" title="Ver CRUD demo">
+            <span class="bubble">Eu sei fazer CRUD! 😎</span>
+            <span class="arrow" aria-hidden="true">➜</span>
+            <a href="/demo/crud" class="cta-btn">Clique aqui</a>
+        </div>
+        @Body
+    </div>
+</div>
+
+<style>
+.crud-cta { position:absolute; top:14px; right:0; display:flex; align-items:center; gap:10px; z-index:60; }
+.bubble { background:#22d3ee; color:#0b1220; border-radius:999px; padding:6px 12px; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.12) inset; animation:bob 2.2s ease-in-out infinite; }
+.arrow { color:#22d3ee; font-size:18px; animation:pulse 1s ease-in-out infinite; text-shadow:0 0 10px rgba(34,211,238,.6); }
+.cta-btn { text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.18); color:#e6e6e6; background: rgba(255,255,255,.06); box-shadow: 0 0 0 0 rgba(34,211,238,.0); transition: box-shadow .2s, transform .08s; }
+.cta-btn:hover { box-shadow: 0 0 0 3px rgba(34,211,238,.18); transform: translateY(-1px); }
+@@keyframes bob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-2px); } }
+@@keyframes pulse { 0%,100% { opacity:.7; transform:translateX(0); } 50% { opacity:1; transform:translateX(2px); } }
+</style>
+
+

@@ -1,0 +1,156 @@
+@page "/demo/crud"
+@inject IJSRuntime JS
+
+<div class="demo-header">
+  <a class="back" href="/">← Voltar</a>
+  <h2>CRUD (Dados ficam salvos apenas durante a sessão)</h2>
+</div>
+
+@if (!string.IsNullOrEmpty(error)) { <div class="alert error">@error</div> }
+
+<div class="demo-grid">
+  <section class="card">
+    <h3>Pessoas cadastradas (sessão)</h3>
+    <table class="tbl">
+      <thead><tr><th>Nome</th><th>Email</th><th>Idade</th><th>Mensagem</th><th>Ações</th></tr></thead>
+      <tbody>
+        @foreach (var c in people)
+        {
+          <tr>
+            <td class="mono">@c.Name</td>
+            <td class="mono">@c.Email</td>
+            <td class="mono" style="width:70px">@c.Age</td>
+            <td class="mono ellipsis">@c.Message</td>
+            <td>
+              <button @onclick="() => LoadForEdit(c)">Editar</button>
+              <button class="danger" @onclick="() => DeleteAsync(c)">Excluir</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h3>@(model.Id == Guid.Empty ? "Nova pessoa" : $"Editando • {model.Name}")</h3>
+    <EditForm Model="model" OnValidSubmit="SaveAsync">
+      <div class="form-grid">
+        <div>
+          <label>Nome</label>
+          <InputText class="input" @bind-Value="model.Name" />
+        </div>
+        <div>
+          <label>Email</label>
+          <InputText class="input" @bind-Value="model.Email" />
+        </div>
+        <div>
+          <label>Idade</label>
+          <InputNumber class="input" @bind-Value="model.Age" />
+        </div>
+        <div class="col-span-2">
+          <label>Mensagem</label>
+          <InputTextArea class="input textarea" @bind-Value="model.Message" />
+        </div>
+      </div>
+      <div class="actions">
+        <button type="submit">@(model.Id == Guid.Empty ? "Criar" : "Salvar")</button>
+        <button type="button" class="secondary" @onclick="New">Limpar</button>
+      </div>
+    </EditForm>
+  </section>
+</div>
+
+@code {
+  private List<Person> people = new();
+  private string error = string.Empty;
+  private Person model = new();
+  private const string StorageKey = "demo.people";
+
+  protected override async Task OnInitializedAsync() => await LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    error = string.Empty;
+    try
+    {
+      var mod = await JS.InvokeAsync<IJSObjectReference>("import", "../js/app.js");
+      var raw = await mod.InvokeAsync<string?>("sget", StorageKey);
+      people = string.IsNullOrWhiteSpace(raw) ? new() : System.Text.Json.JsonSerializer.Deserialize<List<Person>>(raw) ?? new();
+    }
+    catch (Exception ex) { error = ex.Message; people = new(); }
+  }
+
+  private void LoadForEdit(Person c)
+  {
+    model = new Person { Id = c.Id, Name = c.Name, Email = c.Email, Age = c.Age, Message = c.Message };
+  }
+
+  private void New() => model = new();
+
+  private async Task SaveAsync()
+  {
+    error = string.Empty;
+    try
+    {
+      if (model.Id == Guid.Empty)
+      {
+        model.Id = Guid.NewGuid();
+        people.Add(model);
+      }
+      else
+      {
+        var idx = people.FindIndex(p => p.Id == model.Id);
+        if (idx >= 0) people[idx] = model;
+      }
+      await PersistAsync();
+      New();
+    }
+    catch (Exception ex) { error = ex.Message; }
+  }
+
+  private async Task DeleteAsync(Person c)
+  {
+    try
+    {
+      people.RemoveAll(p => p.Id == c.Id);
+      await PersistAsync();
+      if (model.Id == c.Id) New();
+    }
+    catch (Exception ex) { error = ex.Message; }
+  }
+
+  private async Task PersistAsync()
+  {
+    var mod = await JS.InvokeAsync<IJSObjectReference>("import", "../js/app.js");
+    var raw = System.Text.Json.JsonSerializer.Serialize(people);
+    await mod.InvokeVoidAsync("sset", StorageKey, raw);
+  }
+
+  private sealed class Person { public Guid Id { get; set; } public string Name { get; set; } = string.Empty; public string Email { get; set; } = string.Empty; public int Age { get; set; } public string? Message { get; set; } }
+}
+
+<style>
+.demo-header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.demo-header h2 { margin:0; }
+.back { display:inline-block; text-decoration:none; color:#e5e7eb; opacity:.9; background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.16); padding:6px 10px; border-radius:8px; }
+.back:hover { opacity:1; background: rgba(255,255,255,0.1); }
+.demo-grid { display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 520px); gap:20px; margin-top:6px; align-items:start; }
+.card { background: linear-gradient(180deg, #0b1220, #0a101a); border: 1px solid #0f1b33; border-radius: 10px; padding: 14px; box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
+.tbl { width:100%; border-collapse:collapse; }
+.tbl th, .tbl td { border-bottom:1px solid rgba(255,255,255,0.08); padding:10px; text-align:left; }
+.tbl th { color:#cbd5e1; font-weight:600; }
+.mono { font-family: "JetBrains Mono", Consolas, monospace; }
+.ellipsis { max-width: 320px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.form-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+.col-span-2 { grid-column: span 2; }
+.input { width:100%; box-sizing:border-box; padding:10px 12px; background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.16); color:#e6e6e6; border-radius:8px; }
+.input:focus { outline:none; border-color:#7aa2ff; box-shadow: 0 0 0 3px rgba(80,140,255,0.18); }
+.textarea { min-height:120px; resize: vertical; }
+.actions { margin-top:12px; display:flex; gap:8px; justify-content:flex-end; }
+button { padding: 8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color:#e6e6e6; cursor:pointer; font-weight:600; }
+button:hover { background: rgba(255,255,255,0.1); }
+button.danger { border-color: rgba(255,60,60,0.5); color:#ff7070; }
+@@media (max-width: 980px) { .demo-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } }
+</style>
+
+
