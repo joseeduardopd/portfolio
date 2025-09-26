@@ -51,6 +51,8 @@ jobs:
           else
             sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" "$INDEX"
           fi
+          # SPA fallback para rotas como /demo/crud no GitHub Pages
+          cp "$INDEX" src/out/wwwroot/404.html
 
       - name: Point ApiBaseUrl to Render
         run: |
