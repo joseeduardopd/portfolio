@@ -37,14 +37,20 @@ jobs:
         run: |
           dotnet publish Frontend.Wasm.csproj -c Release -o ../out
 
-      - name: Compute repo name
-        run: echo "REPO_NAME=${GITHUB_REPOSITORY#*/}" >> $GITHUB_ENV
+      - name: Compute repo/owner
+        run: |
+          echo "REPO_NAME=${GITHUB_REPOSITORY#*/}" >> $GITHUB_ENV
+          echo "OWNER_NAME=${GITHUB_REPOSITORY%/*}" >> $GITHUB_ENV
 
       - name: Adjust base href for GitHub Pages
         run: |
           INDEX=src/out/wwwroot/index.html
-          # project pages base href (e.g., /repo-name/). If it's a user/organization site, override this step later.
-          sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" "$INDEX"
+          # Se o repositório for user/organization site (ex: owner.github.io), mantém base "/". Caso contrário, usa "/repo/".
+          if [ "$REPO_NAME" = "${OWNER_NAME}.github.io" ]; then
+            sed -i "s|<base href=\"/\" />|<base href=\"/\" />|" "$INDEX"
+          else
+            sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" "$INDEX"
+          fi
 
       - name: Point ApiBaseUrl to Render
         run: |
