@@ -49,9 +49,10 @@ builder.Services.AddAuthentication(options =>
 });
 builder.Services.AddAuthorization();
 
-// CORS dinâmico via env CORS__ORIGINS (separadas por vírgula)
+// CORS dinâmico via env CORS__ORIGINS (ou CORS:ORIGINS) separadas por vírgula
 // Ex.: https://seu_usuario.github.io,https://seu_usuario.github.io/seu_repo
-var rawOrigins = builder.Configuration["CORS__ORIGINS"];
+var rawOrigins = builder.Configuration["CORS__ORIGINS"]
+                ?? builder.Configuration["CORS:ORIGINS"];
 var permittedOrigins = string.IsNullOrWhiteSpace(rawOrigins)
     ? new[] { "http://localhost:5173", "https://localhost:5173" }
     : rawOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -59,9 +60,21 @@ var permittedOrigins = string.IsNullOrWhiteSpace(rawOrigins)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("pages", policy =>
-        policy.WithOrigins(permittedOrigins)
-              .AllowAnyHeader()
-              .AllowAnyMethod());
+    {
+        if (permittedOrigins.Length == 0)
+        {
+            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        }
+        else
+        {
+            // Permite os domínios informados e, adicionalmente, qualquer subdomínio do github.io
+            policy.WithOrigins(permittedOrigins)
+                  .SetIsOriginAllowed(origin => permittedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)
+                                             || origin.EndsWith(".github.io", StringComparison.OrdinalIgnoreCase))
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+    });
 });
 
 builder.Services.ConfigureHttpJsonOptions(options =>
