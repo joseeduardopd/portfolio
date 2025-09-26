@@ -1,0 +1,71 @@
+name: Deploy Frontend (Blazor WASM) to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  API_BASE_PROD: https://portfolio-api-nt3n.onrender.com
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Publish Blazor WASM
+        working-directory: ./src/frontend.wasm
+        run: |
+          dotnet publish Frontend.Wasm.csproj -c Release -o ../out
+
+      - name: Compute repo name
+        run: echo "REPO_NAME=${GITHUB_REPOSITORY#*/}" >> $GITHUB_ENV
+
+      - name: Adjust base href for GitHub Pages
+        run: |
+          INDEX=src/out/wwwroot/index.html
+          # project pages base href (e.g., /repo-name/). If it's a user/organization site, override this step later.
+          sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" "$INDEX"
+
+      - name: Point ApiBaseUrl to Render
+        run: |
+          APPSETTINGS=src/out/wwwroot/appsettings.json
+          jq --arg url "$API_BASE_PROD" '.ApiBaseUrl = $url' "$APPSETTINGS" > /tmp/appsettings.json
+          mv /tmp/appsettings.json "$APPSETTINGS"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: src/out/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+
