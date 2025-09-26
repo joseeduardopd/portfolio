@@ -30,17 +30,12 @@
     </section>
 
     <section class="profile-card">
-      <div class="header">
-        <img class="avatar" src="@AvatarUrl" alt="avatar" />
-        <div class="meta">
-          <div class="name">José Eduardo</div>
-          <div class="title">Desenvolvedor de software</div>
-        </div>
-      </div>
-      <div class="facts">
-        <div class="fact"><span>Disponibilidade: Trabalho Remoto.</span></div>
-        <div class="fact"><span>Inglês: Avançado.</span></div>
-        <div class="fact"><span>.NET | C# | Blazor | SQL | Docker | Scrum</span></div>
+      <div class="facts-only">
+        <div class="name">José Eduardo Pires Dantas</div>
+        <div class="title">Desenvolvedor de software</div>
+        <div class="fact">Disponibilidade: Trabalho Remoto.</div>
+        <div class="fact">Inglês: Avançado.</div>
+        <div class="fact">.NET | C# | Blazor | SQL | Docker | Scrum</div>
       </div>
     </section>
 
@@ -48,12 +43,6 @@
   </div>
 </div>
 
-@code {
-  private string ApiBase => Config["ApiBaseUrl"] ?? string.Empty;
-  private string AvatarUrl => string.IsNullOrWhiteSpace(ApiBase)
-    ? "/api/profile/avatar"
-    : $"{ApiBase}/api/profile/avatar";
-}
 @code { }
 
 

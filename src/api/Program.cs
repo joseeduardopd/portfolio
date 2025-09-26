@@ -49,12 +49,12 @@ builder.Services.AddAuthentication(options =>
 });
 builder.Services.AddAuthorization();
 
-var permittedOrigins = new[]
-{
-    // Ajustar no deploy para o domínio real do GitHub Pages
-    "https://localhost:5173",
-    "http://localhost:5173"
-};
+// CORS dinâmico via env CORS__ORIGINS (separadas por vírgula)
+// Ex.: https://seu_usuario.github.io,https://seu_usuario.github.io/seu_repo
+var rawOrigins = builder.Configuration["CORS__ORIGINS"];
+var permittedOrigins = string.IsNullOrWhiteSpace(rawOrigins)
+    ? new[] { "http://localhost:5173", "https://localhost:5173" }
+    : rawOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
 builder.Services.AddCors(options =>
 {
@@ -86,6 +86,7 @@ if (app.Environment.IsDevelopment())
 
 // Health
 app.MapGet("/_health", () => Results.Ok("Healthy"));
+app.MapGet("/health", () => Results.Ok("Healthy")); // alias para provedores que verificam "/health"
 // Avatar: salvar em disco (volume) e servir
 var avatarRoot = builder.Configuration["AVATAR__ROOT"] ?? "/data/profile";
 Directory.CreateDirectory(avatarRoot);
