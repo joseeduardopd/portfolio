@@ -1,8 +1,9 @@
 @page "/demo/crud"
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 <div class="demo-header">
-  <a class="back" href="../">← Voltar</a>
+  <a class="back" href="/" @onclick="GoHome" @onclick:preventDefault>← Voltar</a>
   <h2>CRUD (Dados ficam salvos apenas durante a sessão)</h2>
 </div>
 
@@ -127,6 +128,7 @@
   }
 
   private sealed class Person { public Guid Id { get; set; } public string Name { get; set; } = string.Empty; public string Email { get; set; } = string.Empty; public int Age { get; set; } public string? Message { get; set; } }
+  private void GoHome() => Nav.NavigateTo(Nav.BaseUri, forceLoad: true);
 }
 
 <style>
