@@ -29,12 +29,15 @@
       <input class="caret" @bind="currentCommand" @bind:event="oninput" @onkeydown="OnKeyDown" placeholder="@_placeholder" />
     </div>
   </div>
-  <div class="commands" style="margin-bottom:0;">
-    @foreach (var c in available.Where(a => a.Enabled).OrderBy(a => a.Order))
-    {
-      <button class="cmd" @onclick="() => Execute(c.Key)">@c.LabelPt</button>
-    }
-  </div>
+  @if (showCommands)
+  {
+    <div class="commands" style="margin-bottom:0;">
+      @foreach (var c in available.Where(a => a.Enabled).OrderBy(a => a.Order))
+      {
+        <button class="cmd" @onclick="() => Execute(c.Key)">@c.LabelPt</button>
+      }
+    </div>
+  }
 </div>
 
 @code {
@@ -45,20 +48,18 @@
   private bool isTyping = false;
   private List<CommandDto> available = new();
   private CancellationTokenSource refreshCts = new();
+  private bool showCommands = false;
 
   protected override async Task OnInitializedAsync()
   {
     outputLines.Clear();
+    var loadTask = LoadCommandsAsync();
     await TypeOutLines(GetIntroLines(), 9);
-    try
-    {
-      available = await Http.GetFromJsonAsync<List<CommandDto>>($"/api/terminal/commands?ts={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}") ?? new();
-      _ = RefreshAvailableLoopAsync();
-    }
-    catch (Exception ex)
-    {
-      statusText = $"init error: {ex.Message}";
-    }
+    try { await loadTask; }
+    catch { /* statusText já atualizado em LoadCommandsAsync */ }
+    showCommands = true;
+    StateHasChanged();
+    _ = RefreshAvailableLoopAsync();
   }
 
   private async void OnLangChange()
@@ -115,6 +116,21 @@
     }
     catch (TaskCanceledException) { }
     catch { }
+  }
+
+  private async Task LoadCommandsAsync()
+  {
+    try
+    {
+      statusText = "Carregando comandos...";
+      var list = await Http.GetFromJsonAsync<List<CommandDto>>($"/api/terminal/commands?ts={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}");
+      available = list ?? new();
+      statusText = string.Empty;
+    }
+    catch (Exception ex)
+    {
+      statusText = $"init error: {ex.Message}";
+    }
   }
 
   private static bool AreSameCommands(List<CommandDto> a, List<CommandDto> b)
