@@ -38,6 +38,12 @@
       }
     </div>
   }
+  else
+  {
+    <div class="commands" style="margin-bottom:0;">
+      <span class="loading-msg">Carregando comandos@loadingDots</span>
+    </div>
+  }
 </div>
 
 @code {
@@ -50,15 +56,19 @@
   private CancellationTokenSource refreshCts = new();
   private bool showCommands = false;
   private bool isCommandsLoaded = false;
+  private string loadingDots = string.Empty;
+  private CancellationTokenSource? loadingDotsCts;
 
   protected override async Task OnInitializedAsync()
   {
     outputLines.Clear();
     var loadTask = LoadCommandsAsync();
+    StartLoadingDotsAnimation();
     await TypeOutLines(GetIntroLines(), 9);
     try { await loadTask; }
     catch { /* statusText já atualizado em LoadCommandsAsync */ }
     showCommands = true;
+    loadingDotsCts?.Cancel();
     if (isCommandsLoaded)
       statusText = string.Empty; // limpar somente se carregou com sucesso
     StateHasChanged();
@@ -125,8 +135,6 @@
   {
     try
     {
-      statusText = "Carregando comandos...";
-      StateHasChanged();
       var list = await Http.GetFromJsonAsync<List<CommandDto>>($"/api/terminal/commands?ts={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}");
       available = list ?? new();
       isCommandsLoaded = true;
@@ -134,6 +142,34 @@
     catch (Exception ex)
     {
       statusText = $"init error: {ex.Message}";
+    }
+  }
+
+  private void StartLoadingDotsAnimation()
+  {
+    try { loadingDotsCts?.Cancel(); } catch { }
+    loadingDotsCts = new CancellationTokenSource();
+    _ = AnimateLoadingDotsAsync(loadingDotsCts.Token);
+  }
+
+  private async Task AnimateLoadingDotsAsync(CancellationToken token)
+  {
+    var frames = new[] { " .", " ..", " ..." };
+    var i = 0;
+    try
+    {
+      while (!token.IsCancellationRequested && !showCommands)
+      {
+        loadingDots = frames[i % frames.Length];
+        StateHasChanged();
+        i++;
+        await Task.Delay(450, token);
+      }
+    }
+    catch (TaskCanceledException) { }
+    finally
+    {
+      loadingDots = string.Empty;
     }
   }
 
