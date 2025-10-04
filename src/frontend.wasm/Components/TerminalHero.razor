@@ -49,6 +49,7 @@
   private List<CommandDto> available = new();
   private CancellationTokenSource refreshCts = new();
   private bool showCommands = false;
+  private bool isCommandsLoaded = false;
 
   protected override async Task OnInitializedAsync()
   {
@@ -58,6 +59,8 @@
     try { await loadTask; }
     catch { /* statusText já atualizado em LoadCommandsAsync */ }
     showCommands = true;
+    if (isCommandsLoaded)
+      statusText = string.Empty; // limpar somente se carregou com sucesso
     StateHasChanged();
     _ = RefreshAvailableLoopAsync();
   }
@@ -123,9 +126,10 @@
     try
     {
       statusText = "Carregando comandos...";
+      StateHasChanged();
       var list = await Http.GetFromJsonAsync<List<CommandDto>>($"/api/terminal/commands?ts={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}");
       available = list ?? new();
-      statusText = string.Empty;
+      isCommandsLoaded = true;
     }
     catch (Exception ex)
     {
